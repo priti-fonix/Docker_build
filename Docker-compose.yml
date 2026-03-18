@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  postgres:
+   image: postgres #hub.docker.com
+   POSTGRES_PASSWORD: priti@070700
+   ports:
+    - "5432:5432"
+  
+  redis:
+   image: redis #hub.docker.com
+   ports:
+    - "6379:6379"
+
+
+
