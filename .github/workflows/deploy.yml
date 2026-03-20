@@ -10,31 +10,67 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout repo
       - name: Checkout repo
         uses: actions/checkout@v3
 
+      # 2️⃣ Build Docker image locally in runner
       - name: Build Docker image
         run: docker build -t myapp:latest .
 
-      - name: Save Docker image as tar
-        run: docker save -o app.tar myapp:latest
-
-      - name: Copy Docker image to VPS
-        uses: appleboy/scp-action@v0.1.6
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          source: "app.tar"
-          target: "/home/${{ secrets.VPS_USER }}/"
-
-      - name: Load image and run container on VPS
+      # 3️⃣ SSH to VPS and deploy without tar
+      - name: Deploy container to VPS
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            docker load -i /home/${{ secrets.VPS_USER }}/app.tar
+            # Remove old container
             docker rm -f myapp || true
+            # Build image on VPS directly from repo
+            cd /home/${{ secrets.VPS_USER }}/Docker_build || mkdir -p /home/${{ secrets.VPS_USER }}/Docker_build
+            rsync -av --exclude='.git' ./ /home/${{ secrets.VPS_USER }}/Docker_build/
+            docker build -t myapp:latest /home/${{ secrets.VPS_USER }}/Docker_build
             docker run -d -p ${{ secrets.APP_PORT }}:${{ secrets.APP_PORT }} --name myapp myapp:latest
+
+# name: Deploy Docker App to VPS
+
+# on:
+#   push:
+#     branches:
+#       - main
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout repo
+#         uses: actions/checkout@v3
+
+#       - name: Build Docker image
+#         run: docker build -t myapp:latest .
+
+#       - name: Save Docker image as tar
+#         run: docker save -o app.tar myapp:latest
+
+#       - name: Copy Docker image to VPS
+#         uses: appleboy/scp-action@v0.1.6
+#         with:
+#           host: ${{ secrets.VPS_HOST }}
+#           username: ${{ secrets.VPS_USER }}
+#           key: ${{ secrets.VPS_SSH_KEY }}
+#           source: "app.tar"
+#           target: "/home/${{ secrets.VPS_USER }}/"
+
+#       - name: Load image and run container on VPS
+#         uses: appleboy/ssh-action@v0.1.7
+#         with:
+#           host: ${{ secrets.VPS_HOST }}
+#           username: ${{ secrets.VPS_USER }}
+#           key: ${{ secrets.VPS_SSH_KEY }}
+#           script: |
+#             docker load -i /home/${{ secrets.VPS_USER }}/app.tar
+#             docker rm -f myapp || true
+#             docker run -d -p ${{ secrets.APP_PORT }}:${{ secrets.APP_PORT }} --name myapp myapp:latest
